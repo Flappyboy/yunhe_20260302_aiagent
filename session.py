@@ -21,9 +21,9 @@ class SessionManager:
         self._lock = Lock()
         self._session_timeout = session_timeout
     
-    def create_session(self) -> str:
+    def create_session(self, sid) -> str:
         """创建新会话，返回会话ID"""
-        session_id = str(uuid.uuid4())
+        session_id = sid
         with self._lock:
             self._sessions[session_id] = {
                 "messages": [],
@@ -38,7 +38,7 @@ class SessionManager:
         if session_id and self.session_exists(session_id):
             self._update_last_access(session_id)
             return session_id
-        return self.create_session()
+        return self.create_session(session_id)
     
     def session_exists(self, session_id: str) -> bool:
         """检查会话是否存在"""
