@@ -1,13 +1,12 @@
 """
-LLM客户端模块 - 与OpenAI兼容API交互
+LLM客户端模块 - 使用OpenAI SDK与兼容API交互
 """
-import requests
-import json
+from openai import OpenAI
 from typing import List, Dict, Any, Optional
 
 
 class LLMClient:
-    """LLM客户端，与OpenAI兼容的Chat Completion API交互"""
+    """LLM客户端，使用OpenAI SDK与兼容的Chat Completion API交互"""
     
     def __init__(self, model_ip: str, port: int = 8888):
         """
@@ -17,8 +16,11 @@ class LLMClient:
             model_ip: 模型服务IP地址
             port: 端口号，默认8888
         """
-        self.base_url = f"http://{model_ip}:{port}"
-        self.chat_endpoint = f"{self.base_url}/v1/chat/completions"
+        self.base_url = f"http://{model_ip}:{port}/v1"
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key="not-needed"
+        )
     
     def chat_completion(self, 
                         messages: List[Dict[str, Any]], 
@@ -41,32 +43,25 @@ class LLMClient:
         Returns:
             API响应
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Session-ID": session_id
-        }
-        
-        payload = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens
-        }
-        
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-        
         try:
-            response = requests.post(
-                self.chat_endpoint,
-                headers=headers,
-                json=payload,
-                timeout=120
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
+            extra_headers = {"Session-ID": session_id}
+            
+            kwargs = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "extra_headers": extra_headers
+            }
+            
+            if tools:
+                kwargs["tools"] = tools
+                kwargs["tool_choice"] = "auto"
+            
+            response = self.client.chat.completions.create(**kwargs)
+            
+            return response.model_dump()
+        except Exception as e:
             return {
                 "error": f"LLM API调用失败: {str(e)}",
                 "choices": []
@@ -99,8 +94,22 @@ class LLMClient:
         choice = api_response["choices"][0]
         message = choice.get("message", {})
         
+        tool_calls = message.get("tool_calls")
+        if tool_calls:
+            tool_calls = [
+                {
+                    "id": tc["id"],
+                    "type": tc["type"],
+                    "function": {
+                        "name": tc["function"]["name"],
+                        "arguments": tc["function"]["arguments"]
+                    }
+                }
+                for tc in tool_calls
+            ]
+        
         return {
             "content": message.get("content"),
-            "tool_calls": message.get("tool_calls"),
+            "tool_calls": tool_calls,
             "finish_reason": choice.get("finish_reason", "stop")
         }
