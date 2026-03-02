@@ -80,8 +80,6 @@ class RentalAgent:
         logger.debug("创建工具函数")
         self._tools = self._create_tools()
         
-        logger.debug("创建Agent实例")
-        self._agent = self._create_agent()
         logger.info("RentalAgent初始化完成")
     
     def _create_tools(self):
@@ -360,13 +358,15 @@ class RentalAgent:
             take_offline
         ]
     
-    def _create_agent(self) -> Agent:
-        """创建Agent实例"""
+    def _create_agent(self, session_id: str) -> Agent:
+        """创建Agent实例，带有Session-ID header"""
         base_url = f"http://{self.model_ip}:8888/{self.api_version}"
-        logger.info(f"创建OpenAI客户端: base_url={base_url}")
+        logger.info(f"创建OpenAI客户端: base_url={base_url}, Session-ID={session_id}")
         openai_client = AsyncOpenAI(
             base_url=base_url,
-            api_key="not-needed"
+            api_key="not-needed",
+            timeout=60.0,
+            default_headers={"Session-ID": session_id}
         )
         
         logger.debug("创建OpenAIChatCompletionsModel")
@@ -422,6 +422,8 @@ class RentalAgent:
         try:
             logger.info("开始调用Runner.run")
             
+            agent = self._create_agent(session_id)
+            
             try:
                 loop = asyncio.get_running_loop()
                 logger.debug("检测到运行中的事件循环，使用run_until_complete")
@@ -431,10 +433,10 @@ class RentalAgent:
             if loop is not None:
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(self._run_agent_sync, input_messages)
+                    future = executor.submit(self._run_agent_sync, agent, input_messages)
                     result = future.result(timeout=120)
             else:
-                result = asyncio.run(Runner.run(self._agent, input=input_messages))
+                result = asyncio.run(Runner.run(agent, input=input_messages))
             
             response_text = result.final_output or "抱歉，我暂时无法处理您的请求"
             logger.info(f"Runner.run完成，响应长度: {len(response_text)}")
@@ -454,12 +456,12 @@ class RentalAgent:
             "response": response_text
         }
     
-    def _run_agent_sync(self, input_messages):
+    def _run_agent_sync(self, agent, input_messages):
         """在新的事件循环中同步运行agent"""
         import asyncio
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(Runner.run(self._agent, input=input_messages))
+            return loop.run_until_complete(Runner.run(agent, input=input_messages))
         finally:
             loop.close()
