@@ -1,8 +1,16 @@
 """
 Flask应用主入口 - 提供HTTP接口
 """
+import logging
+import traceback
 from flask import Flask, request, jsonify
 from agent import RentalAgent
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -16,6 +24,7 @@ def get_agent(model_ip: str, user_id: str = DEFAULT_USER_ID) -> RentalAgent:
     """获取或创建Agent实例"""
     key = f"{model_ip}_{user_id}"
     if key not in agents:
+        logger.info(f"创建新的Agent实例: model_ip={model_ip}, user_id={user_id}")
         api_base_url = f"http://{model_ip}:{API_PORT}"
         agents[key] = RentalAgent(model_ip, api_base_url, user_id)
     return agents[key]
@@ -40,36 +49,48 @@ def chat():
     }
     """
     try:
+        logger.info("收到聊天请求")
         data = request.get_json()
+        logger.debug(f"请求数据: {data}")
         
         if not data:
+            logger.warning("请求体为空")
             return jsonify({
                 "error": "请求体不能为空"
             }), 400
         
         model_ip = data.get('model_ip')
         if not model_ip:
+            logger.warning("缺少model_ip字段")
             return jsonify({
                 "error": "model_ip 是必填字段"
             }), 400
         
         message = data.get('message')
         if not message:
+            logger.warning("缺少message字段")
             return jsonify({
                 "error": "message 是必填字段"
             }), 400
         
         session_id = data.get('session_id')
+        logger.info(f"处理消息: model_ip={model_ip}, session_id={session_id}, message={message[:50]}...")
         
         agent = get_agent(model_ip, DEFAULT_USER_ID)
         
+        logger.info("开始调用agent.chat")
         result = agent.chat(session_id, message)
+        logger.info(f"agent.chat返回: session_id={result.get('session_id')}")
+        logger.debug(f"响应内容: {result.get('response', '')[:200]}...")
         
         return jsonify(result)
     
     except Exception as e:
+        error_msg = f"服务器内部错误: {str(e)}"
+        logger.error(f"处理请求时发生异常: {error_msg}")
+        logger.error(f"异常堆栈:\n{traceback.format_exc()}")
         return jsonify({
-            "error": f"服务器内部错误: {str(e)}"
+            "error": error_msg
         }), 500
 
 
@@ -80,4 +101,5 @@ def health():
 
 
 if __name__ == '__main__':
+    logger.info("启动Flask服务: host=0.0.0.0, port=8448")
     app.run(host='0.0.0.0', port=8448, debug=False)

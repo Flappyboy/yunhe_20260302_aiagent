@@ -2,15 +2,18 @@
 Agent核心模块 - 使用OpenAI Agents SDK实现
 """
 import json
+import logging
+import traceback
 from typing import Dict, Any, Optional
 
 from openai import AsyncOpenAI
-from agents import Agent, Runner, function_tool, set_tracing_disabled, set_default_openai_client
+from agents import Agent, Runner, function_tool, set_tracing_disabled
 from agents.models.openai_chatcompletions import OpenAIChatCompletionsModel
 
 from tools import HouseAPITools
 from session import SessionManager
 
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """你是一个专业的北京租房助手，帮助用户查找和管理房源信息。
 
@@ -60,18 +63,24 @@ class RentalAgent:
             api_base_url: 房源API基础URL
             user_id: 用户工号
         """
+        logger.info(f"初始化RentalAgent: model_ip={model_ip}, api_base_url={api_base_url}, user_id={user_id}")
         self.model_ip = model_ip
         self.api_base_url = api_base_url
         self.user_id = user_id
         self.session_manager = SessionManager()
         
+        logger.debug("禁用tracing")
         set_tracing_disabled(True)
         
+        logger.debug("创建HouseAPITools实例")
         self.tools_instance = HouseAPITools(api_base_url, user_id)
         
+        logger.debug("创建工具函数")
         self._tools = self._create_tools()
         
+        logger.debug("创建Agent实例")
         self._agent = self._create_agent()
+        logger.info("RentalAgent初始化完成")
     
     def _create_tools(self):
         """创建工具函数列表"""
@@ -80,6 +89,7 @@ class RentalAgent:
         @function_tool
         def init_houses() -> str:
             """重置房源数据到初始状态。在新会话开始时调用，确保数据干净。"""
+            logger.debug("调用工具: init_houses")
             result = tools_instance.init_houses()
             return json.dumps(result, ensure_ascii=False)
         
@@ -91,6 +101,7 @@ class RentalAgent:
                 category: 地标类别：subway(地铁)/company(公司)/landmark(商圈等)
                 district: 行政区，如 海淀、朝阳
             """
+            logger.debug(f"调用工具: get_landmarks(category={category}, district={district})")
             result = tools_instance.get_landmarks(category, district)
             return json.dumps(result, ensure_ascii=False)
         
@@ -101,6 +112,7 @@ class RentalAgent:
             Args:
                 name: 地标名称，如 西二旗站、国贸
             """
+            logger.debug(f"调用工具: get_landmark_by_name(name={name})")
             result = tools_instance.get_landmark_by_name(name)
             return json.dumps(result, ensure_ascii=False)
         
@@ -113,6 +125,7 @@ class RentalAgent:
                 category: 地标类别：subway/company/landmark
                 district: 行政区，如 海淀、朝阳
             """
+            logger.debug(f"调用工具: search_landmarks(q={q}, category={category}, district={district})")
             result = tools_instance.search_landmarks(q, category, district)
             return json.dumps(result, ensure_ascii=False)
         
@@ -123,12 +136,14 @@ class RentalAgent:
             Args:
                 landmark_id: 地标ID，如 SS_001、LM_002
             """
+            logger.debug(f"调用工具: get_landmark_by_id(landmark_id={landmark_id})")
             result = tools_instance.get_landmark_by_id(landmark_id)
             return json.dumps(result, ensure_ascii=False)
         
         @function_tool
         def get_landmark_stats() -> str:
             """获取地标统计信息（总数、按类别分布等）。"""
+            logger.debug("调用工具: get_landmark_stats")
             result = tools_instance.get_landmark_stats()
             return json.dumps(result, ensure_ascii=False)
         
@@ -139,6 +154,7 @@ class RentalAgent:
             Args:
                 house_id: 房源ID，如 HF_2001
             """
+            logger.debug(f"调用工具: get_house_by_id(house_id={house_id})")
             result = tools_instance.get_house_by_id(house_id)
             return json.dumps(result, ensure_ascii=False)
         
@@ -149,6 +165,7 @@ class RentalAgent:
             Args:
                 house_id: 房源ID，如 HF_2001
             """
+            logger.debug(f"调用工具: get_house_listings(house_id={house_id})")
             result = tools_instance.get_house_listings(house_id)
             return json.dumps(result, ensure_ascii=False)
         
@@ -163,6 +180,7 @@ class RentalAgent:
                 page: 页码，默认1
                 page_size: 每页条数，默认10
             """
+            logger.debug(f"调用工具: get_houses_by_community(community={community})")
             result = tools_instance.get_houses_by_community(community, listing_platform, page, page_size)
             return json.dumps(result, ensure_ascii=False)
         
@@ -219,6 +237,7 @@ class RentalAgent:
                 page: 页码，默认1
                 page_size: 每页条数，默认10
             """
+            logger.debug(f"调用工具: get_houses_by_platform(district={district}, bedrooms={bedrooms}, max_price={max_price})")
             result = tools_instance.get_houses_by_platform(
                 listing_platform=listing_platform,
                 district=district,
@@ -259,6 +278,7 @@ class RentalAgent:
                 page: 页码，默认1
                 page_size: 每页条数，默认10
             """
+            logger.debug(f"调用工具: get_houses_nearby(landmark_id={landmark_id})")
             result = tools_instance.get_houses_nearby(landmark_id, max_distance, listing_platform, page, page_size)
             return json.dumps(result, ensure_ascii=False)
         
@@ -272,12 +292,14 @@ class RentalAgent:
                 landmark_type: 地标类型：shopping(商超)/park(公园)
                 max_distance_m: 最大距离（米），默认3000
             """
+            logger.debug(f"调用工具: get_nearby_landmarks(community={community})")
             result = tools_instance.get_nearby_landmarks(community, landmark_type, max_distance_m)
             return json.dumps(result, ensure_ascii=False)
         
         @function_tool
         def get_house_stats() -> str:
             """获取房源统计信息（总套数、按状态/行政区/户型分布、价格区间等）。"""
+            logger.debug("调用工具: get_house_stats")
             result = tools_instance.get_house_stats()
             return json.dumps(result, ensure_ascii=False)
         
@@ -289,6 +311,7 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            logger.debug(f"调用工具: rent_house(house_id={house_id}, listing_platform={listing_platform})")
             result = tools_instance.rent_house(house_id, listing_platform)
             return json.dumps(result, ensure_ascii=False)
         
@@ -300,6 +323,7 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            logger.debug(f"调用工具: terminate_rental(house_id={house_id}, listing_platform={listing_platform})")
             result = tools_instance.terminate_rental(house_id, listing_platform)
             return json.dumps(result, ensure_ascii=False)
         
@@ -311,6 +335,7 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            logger.debug(f"调用工具: take_offline(house_id={house_id}, listing_platform={listing_platform})")
             result = tools_instance.take_offline(house_id, listing_platform)
             return json.dumps(result, ensure_ascii=False)
         
@@ -335,16 +360,19 @@ class RentalAgent:
     
     def _create_agent(self) -> Agent:
         """创建Agent实例"""
+        logger.info(f"创建OpenAI客户端: base_url=http://{self.model_ip}:8888/v1")
         openai_client = AsyncOpenAI(
             base_url=f"http://{self.model_ip}:8888/v1",
             api_key="not-needed"
         )
         
+        logger.debug("创建OpenAIChatCompletionsModel")
         model = OpenAIChatCompletionsModel(
             model="default",
             openai_client=openai_client
         )
         
+        logger.debug("创建Agent")
         return Agent(
             name="租房助手",
             instructions=SYSTEM_PROMPT,
@@ -365,13 +393,18 @@ class RentalAgent:
         """
         import asyncio
         
+        logger.info(f"chat开始: session_id={session_id}, message={message[:50]}...")
+        
         session_id = self.session_manager.get_or_create_session(session_id)
+        logger.debug(f"使用session_id: {session_id}")
         
         if not self.session_manager.is_session_initialized(session_id):
+            logger.info("初始化房源数据")
             self.tools_instance.init_houses()
             self.session_manager.mark_session_initialized(session_id)
         
         history = self.session_manager.get_messages(session_id)
+        logger.debug(f"历史消息数量: {len(history)}")
         
         input_messages = []
         for msg in history:
@@ -381,29 +414,49 @@ class RentalAgent:
                 input_messages.append({"role": "assistant", "content": msg["content"]})
         
         input_messages.append({"role": "user", "content": message})
+        logger.debug(f"输入消息数量: {len(input_messages)}")
         
         try:
-            result = asyncio.get_event_loop().run_until_complete(
-                Runner.run(self._agent, input=input_messages)
-            )
-            response_text = result.final_output or "抱歉，我暂时无法处理您的请求"
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            logger.info("开始调用Runner.run")
+            
             try:
-                result = loop.run_until_complete(
-                    Runner.run(self._agent, input=input_messages)
-                )
-                response_text = result.final_output or "抱歉，我暂时无法处理您的请求"
-            finally:
-                loop.close()
+                loop = asyncio.get_running_loop()
+                logger.debug("检测到运行中的事件循环，使用run_until_complete")
+            except RuntimeError:
+                loop = None
+            
+            if loop is not None:
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(self._run_agent_sync, input_messages)
+                    result = future.result(timeout=120)
+            else:
+                result = asyncio.run(Runner.run(self._agent, input=input_messages))
+            
+            response_text = result.final_output or "抱歉，我暂时无法处理您的请求"
+            logger.info(f"Runner.run完成，响应长度: {len(response_text)}")
+            
         except Exception as e:
-            response_text = f"处理请求时发生错误: {str(e)}"
+            error_msg = f"处理请求时发生错误: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"异常堆栈:\n{traceback.format_exc()}")
+            response_text = error_msg
         
         self.session_manager.add_message(session_id, "user", message)
         self.session_manager.add_message(session_id, "assistant", response_text)
         
+        logger.info(f"chat完成: session_id={session_id}")
         return {
             "session_id": session_id,
             "response": response_text
         }
+    
+    def _run_agent_sync(self, input_messages):
+        """在新的事件循环中同步运行agent"""
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(Runner.run(self._agent, input=input_messages))
+        finally:
+            loop.close()
