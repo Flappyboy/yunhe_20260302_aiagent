@@ -10,7 +10,7 @@ API_PORT = 8080
 
 # Flask服务配置
 FLASK_HOST = '0.0.0.0'
-FLASK_PORT = 5000
+FLASK_PORT = 8448
 FLASK_DEBUG = False
 
 # 会话配置
