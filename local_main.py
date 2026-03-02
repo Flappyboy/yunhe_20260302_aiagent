@@ -66,7 +66,7 @@ TEST_CASES = [
 ]
 
 
-AGENT_BASE_URL = "http://localhost:8448"
+AGENT_BASE_URL = "http://127.0.0.1:8448"
 MODEL_IP = "7.225.29.223"
 
 
