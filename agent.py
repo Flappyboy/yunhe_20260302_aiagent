@@ -4,6 +4,7 @@ Agent核心模块 - 使用OpenAI Agents SDK实现
 import json
 import logging
 import traceback
+import inspect
 from typing import Dict, Any, Optional
 from functools import wraps
 
@@ -129,7 +130,7 @@ class RentalAgent:
         tools_instance = self.tools_instance
         
         def log_tool_call(tool_name: str):
-            """工具调用日志装饰器"""
+            """工具调用日志装饰器 - 保留完整函数签名"""
             def decorator(func):
                 @wraps(func)
                 def wrapper(*args, **kwargs):
@@ -143,6 +144,8 @@ class RentalAgent:
                         session_logger.log_tool_response(session_id, tool_name, result)
                     
                     return result
+                wrapper.__signature__ = inspect.signature(func)
+                wrapper.__annotations__ = func.__annotations__
                 return wrapper
             return decorator
         
