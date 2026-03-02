@@ -4,9 +4,7 @@ Agent核心模块 - 使用OpenAI Agents SDK实现
 import json
 import logging
 import traceback
-import inspect
 from typing import Dict, Any, Optional
-from functools import wraps
 
 from openai import AsyncOpenAI
 from agents import Agent, Runner, function_tool, set_tracing_disabled, ModelSettings
@@ -129,35 +127,22 @@ class RentalAgent:
         """创建工具函数列表"""
         tools_instance = self.tools_instance
         
-        def log_tool_call(tool_name: str):
-            """工具调用日志装饰器 - 保留完整函数签名"""
-            def decorator(func):
-                @wraps(func)
-                def wrapper(*args, **kwargs):
-                    session_id = get_current_session()
-                    if session_id:
-                        session_logger.log_tool_request(session_id, tool_name, kwargs)
-                    
-                    result = func(*args, **kwargs)
-                    
-                    if session_id:
-                        session_logger.log_tool_response(session_id, tool_name, result)
-                    
-                    return result
-                wrapper.__signature__ = inspect.signature(func)
-                wrapper.__annotations__ = func.__annotations__
-                return wrapper
-            return decorator
+        def _log_tool(tool_name: str, args_dict: dict, result: str):
+            """记录工具调用日志"""
+            session_id = get_current_session()
+            if session_id:
+                session_logger.log_tool_request(session_id, tool_name, args_dict)
+                session_logger.log_tool_response(session_id, tool_name, result)
         
         @function_tool
-        @log_tool_call("init_houses")
         def init_houses() -> str:
             """重置房源数据到初始状态。在新会话开始时调用，确保数据干净。"""
             result = tools_instance.init_houses()
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("init_houses", {}, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_landmarks")
         def get_landmarks(category: Optional[str] = None, district: Optional[str] = None) -> str:
             """获取地标列表，支持按类别和行政区筛选。用于查地铁站、公司、商圈等地标。
             
@@ -165,22 +150,26 @@ class RentalAgent:
                 category: 地标类别：subway(地铁)/company(公司)/landmark(商圈等)
                 district: 行政区，如 海淀、朝阳
             """
+            args = {"category": category, "district": district}
             result = tools_instance.get_landmarks(category, district)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_landmarks", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_landmark_by_name")
         def get_landmark_by_name(name: str) -> str:
             """按名称精确查询地标，如西二旗站、百度。返回地标id、经纬度等，用于后续nearby查房。
             
             Args:
                 name: 地标名称，如 西二旗站、国贸
             """
+            args = {"name": name}
             result = tools_instance.get_landmark_by_name(name)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_landmark_by_name", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("search_landmarks")
         def search_landmarks(q: str, category: Optional[str] = None, district: Optional[str] = None) -> str:
             """关键词模糊搜索地标，支持按类别和行政区筛选。
             
@@ -189,51 +178,60 @@ class RentalAgent:
                 category: 地标类别：subway/company/landmark
                 district: 行政区，如 海淀、朝阳
             """
+            args = {"q": q, "category": category, "district": district}
             result = tools_instance.search_landmarks(q, category, district)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("search_landmarks", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_landmark_by_id")
         def get_landmark_by_id(landmark_id: str) -> str:
             """按地标ID查询地标详情。
             
             Args:
                 landmark_id: 地标ID，如 SS_001、LM_002
             """
+            args = {"landmark_id": landmark_id}
             result = tools_instance.get_landmark_by_id(landmark_id)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_landmark_by_id", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_landmark_stats")
         def get_landmark_stats() -> str:
             """获取地标统计信息（总数、按类别分布等）。"""
             result = tools_instance.get_landmark_stats()
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_landmark_stats", {}, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_house_by_id")
         def get_house_by_id(house_id: str) -> str:
             """根据房源ID获取单套房源详情。
             
             Args:
                 house_id: 房源ID，如 HF_2001
             """
+            args = {"house_id": house_id}
             result = tools_instance.get_house_by_id(house_id)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_house_by_id", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_house_listings")
         def get_house_listings(house_id: str) -> str:
             """获取房源在链家/安居客/58同城等各平台的全部挂牌记录。
             
             Args:
                 house_id: 房源ID，如 HF_2001
             """
+            args = {"house_id": house_id}
             result = tools_instance.get_house_listings(house_id)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_house_listings", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_houses_by_community")
         def get_houses_by_community(community: str, listing_platform: Optional[str] = None,
                                      page: int = 1, page_size: int = 10) -> str:
             """按小区名查询该小区下可租房源。用于指代消解、查某小区地铁信息或隐性属性。
@@ -244,11 +242,13 @@ class RentalAgent:
                 page: 页码，默认1
                 page_size: 每页条数，默认10
             """
+            args = {"community": community, "listing_platform": listing_platform, "page": page, "page_size": page_size}
             result = tools_instance.get_houses_by_community(community, listing_platform, page, page_size)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_houses_by_community", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_houses_by_platform")
         def get_houses_by_platform(
             listing_platform: Optional[str] = None,
             district: Optional[str] = None,
@@ -313,6 +313,17 @@ class RentalAgent:
                 page: 页码，从1开始，用于分页获取所有数据
                 page_size: 每页条数，默认10
             """
+            args = {
+                "listing_platform": listing_platform, "district": district, "area": area,
+                "min_price": min_price, "max_price": max_price, "bedrooms": bedrooms,
+                "rental_type": rental_type, "decoration": decoration, "orientation": orientation,
+                "elevator": elevator, "min_area": min_area, "max_area": max_area,
+                "property_type": property_type, "subway_line": subway_line,
+                "max_subway_dist": max_subway_dist, "subway_station": subway_station,
+                "utilities_type": utilities_type, "available_from_before": available_from_before,
+                "commute_to_xierqi_max": commute_to_xierqi_max, "sort_by": sort_by,
+                "sort_order": sort_order, "page": page, "page_size": page_size
+            }
             result = tools_instance.get_houses_by_platform(
                 listing_platform=listing_platform,
                 district=district,
@@ -338,10 +349,11 @@ class RentalAgent:
                 page=page,
                 page_size=page_size
             )
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_houses_by_platform", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_houses_nearby")
         def get_houses_nearby(landmark_id: str, max_distance: Optional[int] = None,
                                listing_platform: Optional[str] = None,
                                page: int = 1, page_size: int = 10) -> str:
@@ -354,11 +366,13 @@ class RentalAgent:
                 page: 页码，默认1
                 page_size: 每页条数，默认10
             """
+            args = {"landmark_id": landmark_id, "max_distance": max_distance, "listing_platform": listing_platform, "page": page, "page_size": page_size}
             result = tools_instance.get_houses_nearby(landmark_id, max_distance, listing_platform, page, page_size)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_houses_nearby", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_nearby_landmarks")
         def get_nearby_landmarks(community: str, landmark_type: Optional[str] = None,
                                   max_distance_m: Optional[int] = None) -> str:
             """查询某小区周边某类地标（商超/公园），按距离排序。用于回答「附近有没有商场/公园」。
@@ -368,18 +382,21 @@ class RentalAgent:
                 landmark_type: 地标类型：shopping(商超)/park(公园)
                 max_distance_m: 最大距离（米），默认3000
             """
+            args = {"community": community, "landmark_type": landmark_type, "max_distance_m": max_distance_m}
             result = tools_instance.get_nearby_landmarks(community, landmark_type, max_distance_m)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_nearby_landmarks", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("get_house_stats")
         def get_house_stats() -> str:
             """获取房源统计信息（总套数、按状态/行政区/户型分布、价格区间等）。"""
             result = tools_instance.get_house_stats()
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("get_house_stats", {}, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("rent_house")
         def rent_house(house_id: str, listing_platform: str) -> str:
             """租房操作，将房源设为已租状态。必须调用此API才算完成租房，仅对话生成[已租]无效。
             
@@ -387,11 +404,13 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            args = {"house_id": house_id, "listing_platform": listing_platform}
             result = tools_instance.rent_house(house_id, listing_platform)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("rent_house", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("terminate_rental")
         def terminate_rental(house_id: str, listing_platform: str) -> str:
             """退租操作，将房源恢复为可租状态。
             
@@ -399,11 +418,13 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            args = {"house_id": house_id, "listing_platform": listing_platform}
             result = tools_instance.terminate_rental(house_id, listing_platform)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("terminate_rental", args, result_str)
+            return result_str
         
         @function_tool
-        @log_tool_call("take_offline")
         def take_offline(house_id: str, listing_platform: str) -> str:
             """下架操作，将房源设为下架状态。
             
@@ -411,8 +432,11 @@ class RentalAgent:
                 house_id: 房源ID，如 HF_2001
                 listing_platform: 挂牌平台（必填）：链家/安居客/58同城
             """
+            args = {"house_id": house_id, "listing_platform": listing_platform}
             result = tools_instance.take_offline(house_id, listing_platform)
-            return json.dumps(result, ensure_ascii=False)
+            result_str = json.dumps(result, ensure_ascii=False)
+            _log_tool("take_offline", args, result_str)
+            return result_str
         
         return [
             init_houses,
