@@ -1,8 +1,18 @@
 """
 Flask应用主入口 - 提供HTTP接口
 """
+import os
 import logging
 import traceback
+
+os.environ.pop('HTTP_PROXY', None)
+os.environ.pop('HTTPS_PROXY', None)
+os.environ.pop('http_proxy', None)
+os.environ.pop('https_proxy', None)
+os.environ.pop('ALL_PROXY', None)
+os.environ.pop('all_proxy', None)
+os.environ['NO_PROXY'] = '*'
+
 from flask import Flask, request, jsonify
 from agent import RentalAgent
 
