@@ -20,13 +20,13 @@ DEFAULT_USER_ID = "l00576045"
 agents = {}
 
 
-def get_agent(model_ip: str, user_id: str = DEFAULT_USER_ID) -> RentalAgent:
+def get_agent(model_ip: str, user_id: str = DEFAULT_USER_ID, api_version: str = "v1") -> RentalAgent:
     """获取或创建Agent实例"""
-    key = f"{model_ip}_{user_id}"
+    key = f"{model_ip}_{user_id}_{api_version}"
     if key not in agents:
-        logger.info(f"创建新的Agent实例: model_ip={model_ip}, user_id={user_id}")
+        logger.info(f"创建新的Agent实例: model_ip={model_ip}, user_id={user_id}, api_version={api_version}")
         api_base_url = f"http://{model_ip}:{API_PORT}"
-        agents[key] = RentalAgent(model_ip, api_base_url, user_id)
+        agents[key] = RentalAgent(model_ip, api_base_url, user_id, api_version)
     return agents[key]
 
 
@@ -39,7 +39,8 @@ def chat():
     {
         "model_ip": "模型资源接口IP",
         "session_id": "会话ID（可选，用于多轮对话）",
-        "message": "用户消息"
+        "message": "用户消息",
+        "api_version": "模型API版本，v1或v2（可选，默认v2）"
     }
     
     响应:
@@ -74,9 +75,10 @@ def chat():
             }), 400
         
         session_id = data.get('session_id')
-        logger.info(f"处理消息: model_ip={model_ip}, session_id={session_id}, message={message[:50]}...")
+        api_version = data.get('api_version', 'v1')
+        logger.info(f"处理消息: model_ip={model_ip}, session_id={session_id}, api_version={api_version}, message={message[:50]}...")
         
-        agent = get_agent(model_ip, DEFAULT_USER_ID)
+        agent = get_agent(model_ip, DEFAULT_USER_ID, api_version)
         
         logger.info("开始调用agent.chat")
         result = agent.chat(session_id, message)

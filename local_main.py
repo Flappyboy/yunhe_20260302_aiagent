@@ -9,6 +9,19 @@ from typing import List, Dict, Any
 
 TEST_CASES = [
     {
+        "name": "用例0：你好",
+        "rounds": [
+            {
+                "session_id": "EV-41",
+                "user_input": "你好",
+                "expected": {
+                    "message_contains": ["你好"],
+                    "expectedHouses": []
+                }
+            }
+        ]
+    },
+    {
         "name": "用例1：东城区精装两居查询（无结果）",
         "rounds": [
             {
@@ -66,8 +79,9 @@ TEST_CASES = [
 ]
 
 
-AGENT_BASE_URL = "http://127.0.0.1:8448"
+AGENT_BASE_URL = "http://localhost:8448"
 MODEL_IP = "7.225.29.223"
+API_VERSION = "v2"
 
 
 def call_chat_api(model_ip: str, message: str, 
@@ -77,7 +91,8 @@ def call_chat_api(model_ip: str, message: str,
     
     payload = {
         "model_ip": model_ip,
-        "message": message
+        "message": message,
+        "api_version": API_VERSION
     }
     
     if session_id:
@@ -207,7 +222,7 @@ def run_all_tests():
     print("租房AI Agent HTTP接口测试")
     print("=" * 60)
     print(f"Agent服务地址: {AGENT_BASE_URL}")
-    print(f"模型IP: {MODEL_IP}:8888")
+    print(f"模型IP: {MODEL_IP}:8888/{API_VERSION}")
     print("=" * 60)
     
     all_results = []
@@ -256,7 +271,7 @@ def interactive_mode():
     print("=" * 60)
     print("交互测试模式（HTTP接口）")
     print(f"Agent服务地址: {AGENT_BASE_URL}")
-    print(f"模型IP: {MODEL_IP}:8888")
+    print(f"模型IP: {MODEL_IP}:8888/{API_VERSION}")
     print("输入 'quit' 或 'exit' 退出")
     print("输入 'new' 开始新会话")
     print("=" * 60)
@@ -301,7 +316,7 @@ def main():
     print("租房AI Agent 测试工具")
     print("=" * 60)
     print(f"Agent服务地址: {AGENT_BASE_URL}")
-    print(f"模型IP: {MODEL_IP}:8888")
+    print(f"模型IP: {MODEL_IP}:8888/{API_VERSION}")
     print("=" * 60)
     
     command = sys.argv[1] if len(sys.argv) > 1 else "all"
