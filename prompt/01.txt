@@ -1,0 +1,28 @@
+创建一个基于python的flask的租房AI agent助手，都是用http不适用https
+
+对外提供一个http接口：
+POST /api/v1/chat
+body
+model_ip: 模型资源接口ip，端口固定为8888
+session_id: 会话ID，用于多轮对话
+message: 用户消息
+响应：
+{
+  “session_id": 会话id
+"response": 回复内容
+}
+response:
+普通场景对话：回复自然语言文本；
+房源查询后回复json字符串 ,格式如下：
+message: 给用户的回复说明
+houses：房源ID列表
+例如：
+{
+”message": "为您找到以下符合条件的房源：“,
+"houses": ["HF_4", "HF_6", "HF_277"]
+}
+
+模型接口与OpenAI API兼容的Chat Completion，需要在请求头中携带 Session-ID
+
+相关要求请查看：req/README.md
+房源信息接口请查看：req/fake_app_agent_tools.json
