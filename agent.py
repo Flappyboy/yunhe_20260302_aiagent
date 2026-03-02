@@ -430,8 +430,12 @@ class RentalAgent:
             take_offline
         ]
     
-    def _create_agent(self, session_id: str) -> Agent:
-        """创建Agent实例，带有Session-ID header"""
+    def _create_agent(self, session_id: str) -> tuple:
+        """创建Agent实例，带有Session-ID header
+        
+        Returns:
+            tuple: (agent, openai_client) - 返回agent和client，以便后续关闭client
+        """
         base_url = f"http://{self.model_ip}:8888/{self.api_version}"
         logger.info(f"创建OpenAI客户端: base_url={base_url}, Session-ID={session_id}")
         openai_client = AsyncOpenAI(
@@ -448,13 +452,14 @@ class RentalAgent:
         )
         
         logger.debug("创建Agent")
-        return Agent(
+        agent = Agent(
             name="租房助手",
             instructions=SYSTEM_PROMPT,
             model=model,
             tools=self._tools,
             model_settings=ModelSettings(max_tokens=None)
         )
+        return agent, openai_client
     
     def chat(self, session_id: Optional[str], message: str) -> Dict[str, Any]:
         """
@@ -500,10 +505,11 @@ class RentalAgent:
         
         session_logger.log_model_request(session_id, input_messages)
         
+        openai_client = None
         try:
             logger.info("开始调用Runner.run")
             
-            agent = self._create_agent(session_id)
+            agent, openai_client = self._create_agent(session_id)
             
             result = self._run_agent_sync(agent, input_messages, session_id)
             
@@ -518,6 +524,19 @@ class RentalAgent:
             logger.error(f"异常堆栈:\n{traceback.format_exc()}")
             session_logger.log_error(session_id, type(e).__name__, str(e), traceback.format_exc())
             response_text = error_msg
+        finally:
+            if openai_client is not None:
+                try:
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(openai_client.close())
+                    finally:
+                        loop.close()
+                    logger.debug("OpenAI客户端已关闭")
+                except Exception as close_err:
+                    logger.debug(f"关闭OpenAI客户端时出现异常（可忽略）: {close_err}")
         
         self.session_manager.add_message(session_id, "user", message)
         self.session_manager.add_message(session_id, "assistant", response_text)
