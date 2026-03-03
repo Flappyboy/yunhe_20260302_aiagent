@@ -395,14 +395,24 @@ class RentalAgent:
         openai_client = None
         try:
             logger.info("开始调用Runner.run")
-            
+
             agent, openai_client = self._create_agent(session_id)
-            
+
             result = self._run_agent_sync(agent, input_messages, session_id)
-            
+
             response_text = result.final_output or "抱歉，我暂时无法处理您的请求"
             logger.info(f"Runner.run完成，响应长度: {len(response_text)}")
-            
+
+            # 记录 token 消耗（如果 SDK 提供 usage 字段）
+            usage = getattr(result, "usage", None)
+            try:
+                # 兼容 usage 为对象或 dict 的情况
+                if usage is not None and not isinstance(usage, dict):
+                    usage = getattr(usage, "model_dump", None)() if hasattr(usage, "model_dump") else dict(usage)  # type: ignore
+            except Exception:
+                pass
+            session_logger.log_model_usage(session_id, usage)
+
             session_logger.log_model_response(session_id, response_text)
             
         except Exception as e:

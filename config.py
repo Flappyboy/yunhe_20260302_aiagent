@@ -16,9 +16,10 @@ FLASK_DEBUG = False
 # 会话配置
 SESSION_TIMEOUT = 3600
 
-# LLM配置
+# LLM配置（比赛场景：尽量省 token）
 LLM_TEMPERATURE = 0.7
-LLM_MAX_TOKENS = 4096
+# 单轮最大生成 token，控制回复长度
+LLM_MAX_TOKENS = 1024
 LLM_MODEL = "default"
 
 # Agent配置（节省 token）
@@ -26,4 +27,4 @@ MAX_TOOL_ITERATIONS = 10
 # 送入模型的最大历史消息条数（user+assistant 合计），超出只保留最近 N 条
 MAX_HISTORY_MESSAGES = 5
 # 单次工具返回给模型的最大字符数，超出则截断并注明
-MAX_TOOL_RESULT_CHARS = 8000
+MAX_TOOL_RESULT_CHARS = 4000

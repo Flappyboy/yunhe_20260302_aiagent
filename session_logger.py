@@ -92,13 +92,25 @@ class SessionLogger:
         logger.info(f"[{session_id}] MODEL_REQUEST: messages_count={len(messages)}")
     
     def log_model_response(self, session_id: str, response: Any, tool_calls: Optional[list] = None):
-        """记录模型响应"""
+        """记录模型响应（不含 token 信息）"""
         log_entry = self._create_log_entry(session_id, "MODEL_RESPONSE", {
             "content": str(response)[:500] if response else None,
             "tool_calls": tool_calls
         })
         self._write_to_file(session_id, log_entry)
         logger.info(f"[{session_id}] MODEL_RESPONSE: content_length={len(str(response)) if response else 0}, tool_calls={len(tool_calls) if tool_calls else 0}")
+
+    def log_model_usage(self, session_id: str, usage: Optional[Dict[str, Any]]):
+        """记录本次调用的 token 消耗"""
+        if not usage:
+            return
+        log_entry = self._create_log_entry(session_id, "MODEL_USAGE", {
+            "usage": usage
+        })
+        self._write_to_file(session_id, log_entry)
+        # 尽量简洁，只打出总 token
+        total = usage.get("total_tokens") or usage.get("total") or usage
+        logger.info(f"[{session_id}] MODEL_USAGE: {total}")
     
     def log_tool_request(self, session_id: str, tool_name: str, arguments: Dict[str, Any]):
         """记录工具调用请求"""
