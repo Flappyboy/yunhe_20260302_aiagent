@@ -239,7 +239,6 @@ class RentalAgent:
             return result_str
         
         @function_tool
-        @function_tool
         def get_houses_nearby(landmark_id: str, max_distance: Optional[int] = None,
                                listing_platform: Optional[str] = None,
                                page: int = 1, page_size: int = 10) -> str:
